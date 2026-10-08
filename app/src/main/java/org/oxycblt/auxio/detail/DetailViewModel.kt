@@ -18,6 +18,8 @@
  
 package org.oxycblt.auxio.detail
 
+import org.oxycblt.auxio.music.SmartPlaylistManager
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -610,7 +612,11 @@ constructor(
                 playlistSongInstructions,
                 null,
             ) {
-                EditHeader(it)
+                if (SmartPlaylistManager.isSmartPlaylist(uid)) {
+                    SortHeader(it)
+                } else {
+                    EditHeader(it)
+                }
             }
             return
         }

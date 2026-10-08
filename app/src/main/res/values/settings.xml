@@ -32,6 +32,8 @@
     <string name="set_key_custom_artist_merges" translatable="false">auxio_custom_artist_merges</string>
     <string name="set_key_export_settings" translatable="false">auxio_export_settings</string>
     <string name="set_key_import_settings" translatable="false">auxio_import_settings</string>
+    <string name="set_key_crossfade" translatable="false">auxio_crossfade</string>
+    <string name="set_key_gapless_playback" translatable="false">auxio_gapless_playback</string>
 
     <string name="set_key_headset_autoplay" translatable="false">auxio_headset_autoplay</string>
     <string name="set_key_replay_gain" translatable="false">auxio_replay_gain</string>
@@ -188,4 +190,22 @@
     <integer name="cover_mode_balanced">0xA11D</integer>
     <integer name="cover_mode_high_quality">0xA11E</integer>
     <integer name="cover_mode_as_is">0xA126</integer>
+
+    <string-array name="entries_crossfade">
+        <item>Off</item>
+        <item>2 seconds</item>
+        <item>4 seconds</item>
+        <item>6 seconds</item>
+        <item>8 seconds</item>
+        <item>10 seconds</item>
+    </string-array>
+
+    <integer-array name="values_crossfade">
+        <item>0</item>
+        <item>2</item>
+        <item>4</item>
+        <item>6</item>
+        <item>8</item>
+        <item>10</item>
+    </integer-array>
 </resources>

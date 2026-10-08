@@ -19,7 +19,10 @@
 package org.oxycblt.auxio.detail
 
 import androidx.annotation.StringRes
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import org.oxycblt.auxio.music.SmartPlaylistManager
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.list.ListSettings
 import org.oxycblt.auxio.list.sort.Sort
@@ -62,13 +65,17 @@ interface DetailGenerator {
 
 class DetailGeneratorFactoryImpl
 @Inject
-constructor(private val listSettings: ListSettings, private val musicRepository: MusicRepository) :
-    DetailGenerator.Factory {
+constructor(
+    @ApplicationContext private val context: Context,
+    private val listSettings: ListSettings,
+    private val musicRepository: MusicRepository,
+) : DetailGenerator.Factory {
     override fun create(invalidator: DetailGenerator.Invalidator): DetailGenerator =
-        DetailGeneratorImpl(invalidator, listSettings, musicRepository)
+        DetailGeneratorImpl(context, invalidator, listSettings, musicRepository)
 }
 
 private class DetailGeneratorImpl(
+    private val context: Context,
     private val invalidator: DetailGenerator.Invalidator,
     private val listSettings: ListSettings,
     private val musicRepository: MusicRepository,
@@ -180,7 +187,9 @@ private class DetailGeneratorImpl(
     }
 
     override fun playlist(uid: Music.UID): Detail<Playlist>? {
-        val playlist = musicRepository.library?.findPlaylist(uid) ?: return null
+        val playlist = SmartPlaylistManager.findSmartPlaylist(context, musicRepository.library, uid)
+            ?: musicRepository.library?.findPlaylist(uid)
+            ?: return null
         if (playlist.songs.isNotEmpty()) {
             val songs = DetailSection.Songs(playlist.songs)
             return Detail(playlist, listOf(songs))

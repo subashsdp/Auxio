@@ -18,7 +18,10 @@
  
 package org.oxycblt.auxio.home
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import org.oxycblt.auxio.music.SmartPlaylistManager
 import org.oxycblt.auxio.home.tabs.Tab
 import org.oxycblt.auxio.list.ListSettings
 import org.oxycblt.auxio.list.adapter.UpdateInstructions
@@ -66,15 +69,17 @@ interface HomeGenerator {
 class HomeGeneratorFactoryImpl
 @Inject
 constructor(
+    @ApplicationContext private val context: Context,
     private val homeSettings: HomeSettings,
     private val listSettings: ListSettings,
     private val musicRepository: MusicRepository,
 ) : HomeGenerator.Factory {
     override fun create(invalidator: HomeGenerator.Invalidator): HomeGenerator =
-        HomeGeneratorImpl(invalidator, homeSettings, listSettings, musicRepository)
+        HomeGeneratorImpl(context, invalidator, homeSettings, listSettings, musicRepository)
 }
 
 private class HomeGeneratorImpl(
+    private val context: Context,
     private val invalidator: HomeGenerator.Invalidator,
     private val homeSettings: HomeSettings,
     private val listSettings: ListSettings,
@@ -170,8 +175,11 @@ private class HomeGeneratorImpl(
         musicRepository.library?.let { listSettings.genreSort.genres(it.genres) } ?: emptyList()
 
     override fun playlists() =
-        musicRepository.library?.let { listSettings.playlistSort.playlists(it.playlists) }
-            ?: emptyList()
+        musicRepository.library?.let { library ->
+            val smart = SmartPlaylistManager.getSmartPlaylists(context, library)
+            val user = listSettings.playlistSort.playlists(library.playlists)
+            smart + user
+        } ?: emptyList()
 
     override fun tabs() = homeSettings.homeTabs.filterIsInstance<Tab.Visible>().map { it.type }
 }

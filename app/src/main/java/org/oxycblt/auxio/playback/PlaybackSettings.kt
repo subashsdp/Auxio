@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Auxio Project
+ * Copyright (c) 2021 Auxio Project
  * PlaybackSettings.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -60,6 +60,10 @@ interface PlaybackSettings : Settings<PlaybackSettings.Listener> {
     val rememberPause: Boolean
     /** Whether to always exit when task is removed, even if playing. */
     val exitOnTaskRemoval: Boolean
+    /** Crossfade duration in seconds (0 = off). */
+    val crossfade: Int
+    /** Whether gapless playback is enabled. */
+    val gaplessPlayback: Boolean
 
     interface Listener {
         /** Called when one of the ReplayGain configurations have changed. */
@@ -70,6 +74,9 @@ interface PlaybackSettings : Settings<PlaybackSettings.Listener> {
 
         /** Called when [pauseOnRepeat] has changed. */
         fun onPauseOnRepeatChanged() {}
+
+        /** Called when crossfade duration has changed. */
+        fun onCrossfadeChanged() {}
     }
 }
 
@@ -137,8 +144,13 @@ class PlaybackSettingsImpl @Inject constructor(@ApplicationContext context: Cont
     override val exitOnTaskRemoval: Boolean
         get() = sharedPreferences.getBoolean(getString(R.string.set_key_task_exit), false)
 
+    override val crossfade: Int
+        get() = sharedPreferences.getInt(getString(R.string.set_key_crossfade), 0)
+
+    override val gaplessPlayback: Boolean
+        get() = sharedPreferences.getBoolean(getString(R.string.set_key_gapless_playback), true)
+
     override fun migrate() {
-        // MusicMode was converted to PlaySong in 3.2.0
         fun Int.migrateMusicMode() =
             when (this) {
                 IntegerTable.MUSIC_MODE_SONGS -> PlaySong.FromAll
@@ -200,6 +212,10 @@ class PlaybackSettingsImpl @Inject constructor(@ApplicationContext context: Cont
             getString(R.string.set_key_repeat_pause) -> {
                 L.d("Dispatching pause on repeat change")
                 listener.onPauseOnRepeatChanged()
+            }
+            getString(R.string.set_key_crossfade) -> {
+                L.d("Dispatching crossfade change")
+                listener.onCrossfadeChanged()
             }
         }
     }

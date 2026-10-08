@@ -18,6 +18,8 @@
  
 package org.oxycblt.auxio.detail
 
+import org.oxycblt.auxio.music.SmartPlaylistManager
+
 import android.os.Bundle
 import android.view.MenuItem
 import androidx.activity.result.ActivityResultLauncher
@@ -178,6 +180,10 @@ class PlaylistDetailFragment :
     }
 
     override fun onStartEdit() {
+        val current = detailModel.currentPlaylist.value ?: return
+        if (SmartPlaylistManager.isSmartPlaylist(current)) {
+            return
+        }
         detailModel.startPlaylistEdit()
     }
 
@@ -206,6 +212,8 @@ class PlaylistDetailFragment :
         }
         val binding = requireBinding()
         binding.detailNormalToolbar.title = playlist.name.resolve(requireContext())
+        val isSmart = SmartPlaylistManager.isSmartPlaylist(playlist)
+        
         binding.detailEditToolbar.title =
             getString(R.string.fmt_editing, playlist.name.resolve(requireContext()))
 

@@ -49,6 +49,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.ImageSettings
+import org.oxycblt.auxio.music.PlayCountTracker
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.playback.persist.PersistenceRepository
@@ -87,7 +90,48 @@ class ExoPlaybackStateHolder(
     private val saveScope = CoroutineScope(Dispatchers.IO + saveJob)
     private val restoreScope = CoroutineScope(Dispatchers.IO + saveJob)
     private var currentSaveJob: Job? = null
+    private var playbackMonitorJob: Job? = null
+    private var playCountRecorded = false
     private var openAudioEffectSession = false
+
+    private fun startPlaybackMonitoring() {
+        playbackMonitorJob?.cancel()
+        playbackMonitorJob = saveScope.launch(Dispatchers.Main) {
+            while (isActive) {
+                if (player.isPlaying) {
+                    val currentSong = playbackManager.currentSong
+                    val duration = player.duration
+                    val position = player.currentPosition
+
+                    if (currentSong != null && !playCountRecorded) {
+                        if (position >= 30_000L || (duration > 0 && position >= duration / 2)) {
+                            PlayCountTracker.recordPlay(context, currentSong)
+                            playCountRecorded = true
+                        }
+                    }
+
+                    val crossfadeSec = playbackSettings.crossfade
+                    if (crossfadeSec > 0 && duration > 0) {
+                        val crossfadeMs = crossfadeSec * 1000L
+                        val fadeOutStart = duration - crossfadeMs
+                        if (position >= fadeOutStart && duration > crossfadeMs) {
+                            val progress = (position - fadeOutStart).toFloat() / crossfadeMs.toFloat()
+                            val targetVol = (1f - progress).coerceIn(0f, 1f)
+                            player.volume = targetVol
+                        } else if (position < crossfadeMs) {
+                            val targetVol = (position.toFloat() / crossfadeMs.toFloat()).coerceIn(0f, 1f)
+                            player.volume = targetVol
+                        } else if (player.volume != 1f) {
+                            player.volume = 1f
+                        }
+                    } else if (player.volume != 1f) {
+                        player.volume = 1f
+                    }
+                }
+                delay(100)
+            }
+        }
+    }
 
     var sessionOngoing = false
         private set
@@ -99,10 +143,12 @@ class ExoPlaybackStateHolder(
         replayGainProcessor.attach()
         playbackSettings.registerListener(this)
         imageSettings.registerListener(this)
+        startPlaybackMonitoring()
     }
 
     fun release() {
         saveJob.cancel()
+        playbackMonitorJob?.cancel()
         playbackManager.unregisterStateHolder(this)
         musicRepository.removeUpdateListener(this)
         player.removeListener(this)
@@ -490,18 +536,37 @@ class ExoPlaybackStateHolder(
     override fun onPlaybackStateChanged(playbackState: Int) {
         super.onPlaybackStateChanged(playbackState)
 
-        if (playbackState == Player.STATE_ENDED && player.repeatMode == Player.REPEAT_MODE_OFF) {
-            goto(0)
-            player.pause()
+        if (playbackState == Player.STATE_ENDED) {
+            val currentSong = playbackManager.currentSong
+            if (currentSong != null && !playCountRecorded) {
+                PlayCountTracker.recordPlay(context, currentSong)
+                playCountRecorded = true
+            }
+            if (player.repeatMode == Player.REPEAT_MODE_OFF) {
+                goto(0)
+                player.pause()
+            }
         }
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        playCountRecorded = false
+        if (playbackSettings.crossfade > 0) {
+            player.volume = 0f
+        } else {
+            player.volume = 1f
+        }
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
             playbackManager.ack(this, StateAck.IndexMoved)
             deferSave()
+        }
+    }
+
+    override fun onCrossfadeChanged() {
+        if (playbackSettings.crossfade == 0) {
+            player.volume = 1f
         }
     }
 

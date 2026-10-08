@@ -309,13 +309,14 @@ constructor(
 
     @Synchronized
     override fun find(uid: Music.UID) =
-        (library?.run {
-            findSong(uid)
-                ?: findAlbum(uid)
-                ?: findArtist(uid)
-                ?: findGenre(uid)
-                ?: findPlaylist(uid)
-        })
+        SmartPlaylistManager.findSmartPlaylist(context, library, uid)
+            ?: (library?.run {
+                findSong(uid)
+                    ?: findAlbum(uid)
+                    ?: findArtist(uid)
+                    ?: findGenre(uid)
+                    ?: findPlaylist(uid)
+            })
 
     override suspend fun createPlaylist(name: String, songs: List<Song>) {
         val library = synchronized(this) { library ?: return }

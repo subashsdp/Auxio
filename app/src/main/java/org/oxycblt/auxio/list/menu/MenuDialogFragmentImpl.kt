@@ -31,6 +31,7 @@ import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.music.SmartPlaylistManager
 import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.share
@@ -283,20 +284,21 @@ class PlaylistMenuDialogFragment : MenuDialogFragment<Menu.ForPlaylist>() {
         get() = args.parcel
 
     override fun getDisabledItemIds(menu: Menu.ForPlaylist) =
-        if (menu.playlist.songs.isEmpty()) {
-            // Disable any operations that require some kind of songs to work with, as there won't
-            // be any in an empty playlist.
-            setOf(
-                R.id.action_play,
-                R.id.action_shuffle,
-                R.id.action_play_next,
-                R.id.action_queue_add,
-                R.id.action_playlist_add,
-                R.id.action_export,
-                R.id.action_share,
-            )
-        } else {
-            setOf()
+        buildSet {
+            if (SmartPlaylistManager.isSmartPlaylist(menu.playlist)) {
+                add(R.id.action_rename)
+                add(R.id.action_import)
+                add(R.id.action_delete)
+            }
+            if (menu.playlist.songs.isEmpty()) {
+                add(R.id.action_play)
+                add(R.id.action_shuffle)
+                add(R.id.action_play_next)
+                add(R.id.action_queue_add)
+                add(R.id.action_playlist_add)
+                add(R.id.action_export)
+                add(R.id.action_share)
+            }
         }
 
     override fun updateMenu(binding: DialogMenuBinding, menu: Menu.ForPlaylist) {

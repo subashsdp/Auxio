@@ -11,6 +11,19 @@
 
         <SwitchPreferenceCompat
             app:defaultValue="true"
+            app:key="@string/set_key_gapless_playback"
+            app:summary="@string/set_gapless_playback_desc"
+            app:title="@string/set_gapless_playback" />
+
+        <org.oxycblt.auxio.settings.ui.IntListPreference
+            app:defaultValue="0"
+            app:entries="@array/entries_crossfade"
+            app:entryValues="@array/values_crossfade"
+            app:key="@string/set_key_crossfade"
+            app:title="@string/set_crossfade" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
             app:key="@string/set_key_rewind_prev"
             app:summary="@string/set_rewind_prev_desc"
             app:title="@string/set_rewind_prev" />
