@@ -519,11 +519,6 @@
     <string name="set_import_success">Settings imported successfully! Updating library...</string>
     <string name="set_import_failed">Failed to import settings: Invalid backup file</string>
 
-    <!-- Audio Playback Enhancements -->
-    <string name="set_crossfade">Crossfade Duration</string>
-    <string name="set_crossfade_desc">Smoothly fade volume between consecutive songs</string>
-    <string name="set_gapless_playback">Gapless Playback</string>
-    <string name="set_gapless_playback_desc">Seamless continuous playback between audio tracks with zero silence</string>
 
     <!-- Smart Playlists -->
     <string name="lbl_most_played">Most Played</string>
