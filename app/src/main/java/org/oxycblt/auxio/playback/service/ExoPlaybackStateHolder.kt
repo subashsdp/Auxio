@@ -91,8 +91,77 @@ class ExoPlaybackStateHolder(
     private val restoreScope = CoroutineScope(Dispatchers.IO + saveJob)
     private var currentSaveJob: Job? = null
     private var playbackMonitorJob: Job? = null
+    private var crossfadeTransitionJob: Job? = null
     private var playCountRecorded = false
+    private var hasCrossfadedCurrent = false
     private var openAudioEffectSession = false
+
+    private val crossfadePlayer by lazy {
+        ExoPlayer.Builder(context)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                false,
+            )
+            .build()
+    }
+
+    private fun cancelCrossfadeTransition() {
+        crossfadeTransitionJob?.cancel()
+        crossfadeTransitionJob = null
+        if (crossfadePlayer.isPlaying) {
+            crossfadePlayer.pause()
+            crossfadePlayer.clearMediaItems()
+        }
+        player.volume = 1f
+    }
+
+    private fun triggerCrossfadeTransition(crossfadeMs: Long) {
+        val currentItem = player.currentMediaItem ?: return
+        val currentPos = player.currentPosition
+
+        hasCrossfadedCurrent = true
+        crossfadeTransitionJob?.cancel()
+
+        L.d("Starting overlapping crossfade: $crossfadeMs ms")
+
+        crossfadePlayer.setMediaItem(currentItem)
+        crossfadePlayer.seekTo(currentPos)
+        crossfadePlayer.prepare()
+        crossfadePlayer.play()
+        crossfadePlayer.volume = 1f
+
+        if (player.repeatMode == Player.REPEAT_MODE_ALL || player.hasNextMediaItem()) {
+            player.seekToNext()
+        } else {
+            player.seekTo(0, 0L)
+        }
+        if (!playbackSettings.rememberPause) {
+            player.play()
+        }
+        player.volume = 0f
+
+        crossfadeTransitionJob = saveScope.launch(Dispatchers.Main) {
+            val startTime = System.currentTimeMillis()
+            while (isActive) {
+                val elapsed = System.currentTimeMillis() - startTime
+                val progress = (elapsed.toFloat() / crossfadeMs.toFloat()).coerceIn(0f, 1f)
+
+                crossfadePlayer.volume = (1f - progress)
+                player.volume = progress
+
+                if (progress >= 1f) {
+                    crossfadePlayer.pause()
+                    crossfadePlayer.clearMediaItems()
+                    player.volume = 1f
+                    break
+                }
+                delay(40)
+            }
+        }
+    }
 
     private fun startPlaybackMonitoring() {
         playbackMonitorJob?.cancel()
@@ -111,24 +180,16 @@ class ExoPlaybackStateHolder(
                     }
 
                     val crossfadeSec = playbackSettings.crossfade
-                    if (crossfadeSec > 0 && duration > 0) {
-                        val crossfadeMs = crossfadeSec * 1000L
-                        val fadeOutStart = duration - crossfadeMs
-                        if (position >= fadeOutStart && duration > crossfadeMs) {
-                            val progress = (position - fadeOutStart).toFloat() / crossfadeMs.toFloat()
-                            val targetVol = (1f - progress).coerceIn(0f, 1f)
-                            player.volume = targetVol
-                        } else if (position < crossfadeMs) {
-                            val targetVol = (position.toFloat() / crossfadeMs.toFloat()).coerceIn(0f, 1f)
-                            player.volume = targetVol
-                        } else if (player.volume != 1f) {
-                            player.volume = 1f
+                    if (crossfadeSec > 0 && duration > 0 && !hasCrossfadedCurrent) {
+                        val maxCrossfade = minOf(crossfadeSec * 1000L, duration / 3)
+                        val triggerPoint = duration - maxCrossfade
+                        if (position >= triggerPoint && (player.hasNextMediaItem() || player.repeatMode == Player.REPEAT_MODE_ALL)) {
+                            L.d("Triggering true overlapping crossfade: $maxCrossfade ms")
+                            triggerCrossfadeTransition(maxCrossfade)
                         }
-                    } else if (player.volume != 1f) {
-                        player.volume = 1f
                     }
                 }
-                delay(100)
+                delay(80)
             }
         }
     }
@@ -149,6 +210,11 @@ class ExoPlaybackStateHolder(
     fun release() {
         saveJob.cancel()
         playbackMonitorJob?.cancel()
+        crossfadeTransitionJob?.cancel()
+        if (crossfadePlayer.isPlaying) {
+            crossfadePlayer.stop()
+        }
+        crossfadePlayer.release()
         playbackManager.unregisterStateHolder(this)
         musicRepository.removeUpdateListener(this)
         player.removeListener(this)
@@ -272,6 +338,11 @@ class ExoPlaybackStateHolder(
 
     override fun playing(playing: Boolean) {
         player.playWhenReady = playing
+        if (!playing && crossfadePlayer.isPlaying) {
+            crossfadePlayer.pause()
+        } else if (playing && crossfadeTransitionJob?.isActive == true) {
+            crossfadePlayer.play()
+        }
     }
 
     override fun seekTo(positionMs: Long) {
@@ -324,6 +395,7 @@ class ExoPlaybackStateHolder(
     }
 
     override fun next() {
+        cancelCrossfadeTransition()
         // Replicate the old pseudo-circular queue behavior when no repeat option is implemented.
         // Basically, you can't skip back and wrap around the queue, but you can skip forward and
         // wrap around the queue, albeit playback will be paused.
@@ -348,6 +420,7 @@ class ExoPlaybackStateHolder(
     }
 
     override fun prev() {
+        cancelCrossfadeTransition()
         if (playbackSettings.rewindWithPrev) {
             player.seekToPrevious()
         } else if (player.hasPreviousMediaItem()) {
@@ -552,11 +625,7 @@ class ExoPlaybackStateHolder(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
         playCountRecorded = false
-        if (playbackSettings.crossfade > 0) {
-            player.volume = 0f
-        } else {
-            player.volume = 1f
-        }
+        hasCrossfadedCurrent = false
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
             playbackManager.ack(this, StateAck.IndexMoved)
