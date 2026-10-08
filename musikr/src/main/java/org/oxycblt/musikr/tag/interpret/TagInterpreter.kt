@@ -71,12 +71,10 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
             makePreGenres(song.tags, interpretation).ifEmpty { listOf(unknownPreGenre()) }
         val uri = song.file.uri
 
-        val songNameOrFile = song.tags.name ?: requireNotNull(song.file.path.name)
-        val songNameOrFileWithoutExt =
-            song.tags.name ?: requireNotNull(song.file.path.name).split('.').first()
-        val songNameOrFileWithoutExtCorrect =
-            song.tags.name ?: requireNotNull(song.file.path.name).substringBeforeLast(".")
-        val albumNameOrDir = song.tags.albumName ?: song.file.path.directory.name
+        val rawSongName = song.tags.name ?: requireNotNull(song.file.path.name).substringBeforeLast(".")
+        val songNameOrFileWithoutExtCorrect = MetadataSanitizer.cleanTitle(rawSongName)
+        val rawAlbumName = song.tags.albumName ?: song.file.path.directory.name
+        val albumNameOrDir = MetadataSanitizer.cleanAlbum(rawAlbumName)
 
         val musicBrainzId = song.tags.musicBrainzId?.toUuidOrNull()
         val v363uid =
@@ -93,13 +91,11 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
                     update(song.tags.albumArtistNames)
                 }
 
-        // I was an idiot and accidentally changed the UID spec in v4.0.0, so we need to calculate
-        // the broken UID too and maintain compat for that version.
         val v400uid =
             musicBrainzId?.let { Music.UID.musicBrainz(Music.UID.Item.SONG, it) }
                 ?: Music.UID.auxio(Music.UID.Item.SONG) {
-                    update(songNameOrFile)
-                    update(song.tags.albumName)
+                    update(songNameOrFileWithoutExtCorrect)
+                    update(albumNameOrDir)
                     update(song.tags.date)
 
                     update(song.tags.track)
@@ -115,7 +111,7 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
         val v401uid =
             musicBrainzId?.let { Music.UID.musicBrainz(Music.UID.Item.SONG, it) }
                 ?: Music.UID.auxio(Music.UID.Item.SONG) {
-                    update(songNameOrFileWithoutExt)
+                    update(songNameOrFileWithoutExtCorrect)
                     update(albumNameOrDir)
                     update(song.tags.date)
 
@@ -164,7 +160,8 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
         albumPreArtists: List<PreArtist>,
         interpretation: Interpretation,
     ): PreAlbum {
-        val name = parsedTags.albumName ?: deviceFile.path.directory.name
+        val rawName = parsedTags.albumName ?: deviceFile.path.directory.name
+        val name = MetadataSanitizer.cleanAlbum(rawName)
         return PreAlbum(
             musicBrainzId = parsedTags.albumMusicBrainzId?.toUuidOrNull(),
             name = interpretation.naming.name(name, parsedTags.albumSortName, Placeholder.ALBUM),
@@ -187,7 +184,8 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
         interpretation: Interpretation,
     ): List<PreArtist> {
         val musicBrainzIds = interpretation.separators.split(rawMusicBrainzIds)
-        val names = interpretation.separators.split(rawNames)
+        val splitNames = interpretation.separators.split(rawNames)
+        val names = MetadataSanitizer.splitAndSanitizeArtists(splitNames)
         val sortNames = interpretation.separators.split(rawSortNames)
         return names.mapIndexed { i, name ->
             makePreArtist(musicBrainzIds.getOrNull(i), name, sortNames.getOrNull(i), interpretation)
@@ -200,9 +198,10 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
         sortName: String?,
         interpretation: Interpretation,
     ): PreArtist {
-        val name = interpretation.naming.name(rawName, sortName, Placeholder.ARTIST)
+        val cleanName = rawName?.let { MetadataSanitizer.normalizeArtist(it) } ?: rawName
+        val name = interpretation.naming.name(cleanName, sortName, Placeholder.ARTIST)
         val musicBrainzId = musicBrainzId?.toUuidOrNull()
-        return PreArtist(musicBrainzId, name, rawName)
+        return PreArtist(musicBrainzId, name, cleanName)
     }
 
     private fun unknownPreArtist() = PreArtist(null, Name.Unknown(Placeholder.ARTIST), null)
