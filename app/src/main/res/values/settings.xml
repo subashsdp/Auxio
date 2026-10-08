@@ -30,6 +30,8 @@
     <string name="set_key_locations_mode" translatable="false">auxio_locations_mode</string>
     <string name="set_key_custom_exclusions" translatable="false">auxio_custom_exclusions</string>
     <string name="set_key_custom_artist_merges" translatable="false">auxio_custom_artist_merges</string>
+    <string name="set_key_export_settings" translatable="false">auxio_export_settings</string>
+    <string name="set_key_import_settings" translatable="false">auxio_import_settings</string>
 
     <string name="set_key_headset_autoplay" translatable="false">auxio_headset_autoplay</string>
     <string name="set_key_replay_gain" translatable="false">auxio_replay_gain</string>

@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.settings.categories
 
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
@@ -28,8 +29,10 @@ import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicSettings
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.settings.BasePreferenceFragment
+import org.oxycblt.auxio.settings.SettingsBackupManager
 import org.oxycblt.auxio.settings.ui.WrappedDialogPreference
 import org.oxycblt.auxio.util.navigateSafe
+import org.oxycblt.auxio.util.showToast
 import org.oxycblt.musikr.tag.interpret.MetadataSanitizer
 import timber.log.Timber as L
 
@@ -44,10 +47,53 @@ class MusicPreferenceFragment : BasePreferenceFragment(R.xml.preferences_music) 
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var musicSettings: MusicSettings
 
+    private val exportSettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) {
+                val result = SettingsBackupManager.exportSettings(requireContext(), uri)
+                if (result.isSuccess) {
+                    requireContext().showToast(R.string.set_export_success)
+                } else {
+                    requireContext().showToast(R.string.set_export_failed)
+                }
+            }
+        }
+
+    private val importSettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                val result = SettingsBackupManager.importSettings(requireContext(), uri)
+                if (result.isSuccess) {
+                    MetadataSanitizer.updateSettings(
+                        musicSettings.customExclusions,
+                        musicSettings.customArtistMerges,
+                    )
+                    musicModel.refresh()
+                    requireContext().showToast(R.string.set_import_success)
+                } else {
+                    requireContext().showToast(R.string.set_import_failed)
+                }
+            }
+        }
+
     override fun onOpenDialogPreference(preference: WrappedDialogPreference) {
         if (preference.key == getString(R.string.set_key_separators)) {
             L.d("Navigating to separator dialog")
             findNavController().navigateSafe(MusicPreferenceFragmentDirections.separatorsSettings())
+        }
+    }
+
+    override fun onPreferenceTreeClick(preference: Preference): Boolean {
+        when (preference.key) {
+            getString(R.string.set_key_export_settings) -> {
+                exportSettingsLauncher.launch(SettingsBackupManager.generateBackupFileName())
+                return true
+            }
+            getString(R.string.set_key_import_settings) -> {
+                importSettingsLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                return true
+            }
+            else -> return super.onPreferenceTreeClick(preference)
         }
     }
 

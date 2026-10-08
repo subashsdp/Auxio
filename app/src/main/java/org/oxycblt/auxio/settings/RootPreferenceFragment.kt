@@ -19,6 +19,7 @@
 package org.oxycblt.auxio.settings
 
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
@@ -26,10 +27,14 @@ import androidx.preference.PreferenceFragmentCompat
 import com.google.android.material.transition.MaterialFadeThrough
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import org.oxycblt.auxio.R
+import org.oxycblt.auxio.music.MusicSettings
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.settings.ui.WrappedDialogPreference
 import org.oxycblt.auxio.util.navigateSafe
+import org.oxycblt.auxio.util.showToast
+import org.oxycblt.musikr.tag.interpret.MetadataSanitizer
 import timber.log.Timber as L
 
 /**
@@ -40,6 +45,36 @@ import timber.log.Timber as L
 @AndroidEntryPoint
 class RootPreferenceFragment : BasePreferenceFragment(R.xml.preferences_root) {
     private val musicModel: MusicViewModel by activityViewModels()
+    @Inject lateinit var musicSettings: MusicSettings
+
+    private val exportSettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) {
+                val result = SettingsBackupManager.exportSettings(requireContext(), uri)
+                if (result.isSuccess) {
+                    requireContext().showToast(R.string.set_export_success)
+                } else {
+                    requireContext().showToast(R.string.set_export_failed)
+                }
+            }
+        }
+
+    private val importSettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                val result = SettingsBackupManager.importSettings(requireContext(), uri)
+                if (result.isSuccess) {
+                    MetadataSanitizer.updateSettings(
+                        musicSettings.customExclusions,
+                        musicSettings.customArtistMerges,
+                    )
+                    musicModel.refresh()
+                    requireContext().showToast(R.string.set_import_success)
+                } else {
+                    requireContext().showToast(R.string.set_import_failed)
+                }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +119,12 @@ class RootPreferenceFragment : BasePreferenceFragment(R.xml.preferences_root) {
             }
             getString(R.string.set_key_reindex) -> musicModel.refresh()
             getString(R.string.set_key_rescan) -> musicModel.rescan()
+            getString(R.string.set_key_export_settings) -> {
+                exportSettingsLauncher.launch(SettingsBackupManager.generateBackupFileName())
+            }
+            getString(R.string.set_key_import_settings) -> {
+                importSettingsLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+            }
             else -> return super.onPreferenceTreeClick(preference)
         }
 
