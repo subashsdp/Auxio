@@ -7,6 +7,31 @@ package org.oxycblt.musikr.tag.interpret
 
 object MetadataSanitizer {
 
+    @Volatile
+    var customExclusions: List<String> = emptyList()
+
+    @Volatile
+    var customArtistMerges: Map<String, String> = emptyMap()
+
+    fun updateSettings(exclusionsText: String?, artistMergesText: String?) {
+        customExclusions = exclusionsText?.split(Regex("""[,\n\r]+"""))
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() } ?: emptyList()
+
+        val merges = mutableMapOf<String, String>()
+        artistMergesText?.lines()?.forEach { line ->
+            val parts = line.split(Regex("""[=->:]+"""), limit = 2)
+            if (parts.size == 2) {
+                val from = parts[0].trim().lowercase()
+                val to = parts[1].trim()
+                if (from.isNotBlank() && to.isNotBlank()) {
+                    merges[from] = to
+                }
+            }
+        }
+        customArtistMerges = merges
+    }
+
     private data class ArtistRule(val regex: Regex, val canonical: String)
 
     private val MASTER_ARTIST_RULES = listOf(
@@ -99,6 +124,14 @@ object MetadataSanitizer {
     fun cleanString(raw: String?): String {
         if (raw.isNullOrBlank()) return ""
         var s = raw.trim()
+
+        // Apply custom user-defined word exclusions
+        for (ex in customExclusions) {
+            if (ex.isNotBlank()) {
+                s = s.replace(Regex(Regex.escape(ex), RegexOption.IGNORE_CASE), "")
+            }
+        }
+
         s = s.replace(WEBSITE_JUNK_REGEX, "")
         s = s.replace(TRAILING_JUNK_REGEX, "")
         s = s.replace(DOMAIN_WORD_REGEX, "")
@@ -129,6 +162,10 @@ object MetadataSanitizer {
         clean = clean.replace(ARTIST_ROLE_PREFIX_REGEX, "")
         clean = clean.replace(BOUNDARY_PUNCT_REGEX, "").trim()
         if (clean.isBlank()) return ""
+
+        // Check user custom artist merges first
+        val lower = clean.lowercase()
+        customArtistMerges[lower]?.let { return it }
 
         for (rule in MASTER_ARTIST_RULES) {
             if (rule.regex.containsMatchIn(clean)) {

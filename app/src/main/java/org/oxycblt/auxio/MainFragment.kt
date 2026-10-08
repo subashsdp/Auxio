@@ -111,6 +111,9 @@ class MainFragment :
     @SuppressLint("PrivateResource")
     override fun onBindingCreated(binding: FragmentMainBinding, savedInstanceState: Bundle?) {
         super.onBindingCreated(binding, savedInstanceState)
+        binding.queueHandle.contentDescription = null
+        binding.queueHandle.importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(binding.queueHandle, null)
 
         val playbackSheetBehavior =
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior

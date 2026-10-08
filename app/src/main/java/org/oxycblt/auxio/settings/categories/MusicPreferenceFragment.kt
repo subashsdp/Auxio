@@ -25,10 +25,12 @@ import coil3.ImageLoader
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.oxycblt.auxio.R
+import org.oxycblt.auxio.music.MusicSettings
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.settings.BasePreferenceFragment
 import org.oxycblt.auxio.settings.ui.WrappedDialogPreference
 import org.oxycblt.auxio.util.navigateSafe
+import org.oxycblt.musikr.tag.interpret.MetadataSanitizer
 import timber.log.Timber as L
 
 /**
@@ -40,6 +42,7 @@ import timber.log.Timber as L
 class MusicPreferenceFragment : BasePreferenceFragment(R.xml.preferences_music) {
     private val musicModel: MusicViewModel by viewModels()
     @Inject lateinit var imageLoader: ImageLoader
+    @Inject lateinit var musicSettings: MusicSettings
 
     override fun onOpenDialogPreference(preference: WrappedDialogPreference) {
         if (preference.key == getString(R.string.set_key_separators)) {
@@ -49,6 +52,20 @@ class MusicPreferenceFragment : BasePreferenceFragment(R.xml.preferences_music) 
     }
 
     override fun onSetupPreference(preference: Preference) {
+        if (preference.key == getString(R.string.set_key_custom_exclusions)) {
+            preference.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
+                MetadataSanitizer.updateSettings(newValue as? String, musicSettings.customArtistMerges)
+                musicModel.refresh()
+                true
+            }
+        }
+        if (preference.key == getString(R.string.set_key_custom_artist_merges)) {
+            preference.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
+                MetadataSanitizer.updateSettings(musicSettings.customExclusions, newValue as? String)
+                musicModel.refresh()
+                true
+            }
+        }
         if (preference.key == getString(R.string.set_key_cover_mode)) {
             L.d("Configuring cover mode setting")
             preference.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, _ ->

@@ -32,6 +32,7 @@ import org.oxycblt.auxio.util.unlikelyToBeNull
 import org.oxycblt.musikr.fs.Location
 import org.oxycblt.musikr.fs.mediastore.MediaStore
 import org.oxycblt.musikr.fs.saf.SAF
+import org.oxycblt.musikr.tag.interpret.MetadataSanitizer
 import timber.log.Timber as L
 
 /**
@@ -58,6 +59,12 @@ interface MusicSettings : Settings<MusicSettings.Listener> {
     /** A [String] of characters representing the desired characters to denote multi-value tags. */
     var separators: String
 
+    /** Custom word exclusions to strip from metadata. */
+    var customExclusions: String
+
+    /** Custom artist merge mappings. */
+    var customArtistMerges: String
+
     /** Whether to enable more advanced sorting by articles and numbers. */
     val intelligentSorting: Boolean
 
@@ -80,6 +87,13 @@ interface MusicSettings : Settings<MusicSettings.Listener> {
 
 class MusicSettingsImpl @Inject constructor(@ApplicationContext private val context: Context) :
     Settings.Impl<MusicSettings.Listener>(context), MusicSettings {
+
+    init {
+        MetadataSanitizer.updateSettings(
+            sharedPreferences.getString(getString(R.string.set_key_custom_exclusions), "") ?: "",
+            sharedPreferences.getString(getString(R.string.set_key_custom_artist_merges), "") ?: ""
+        )
+    }
 
     override var revision: UUID?
         get() =
@@ -105,6 +119,26 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
                 putString(getString(R.string.set_key_separators), value)
                 apply()
             }
+        }
+
+    override var customExclusions: String
+        get() = sharedPreferences.getString(getString(R.string.set_key_custom_exclusions), "") ?: ""
+        set(value) {
+            sharedPreferences.edit {
+                putString(getString(R.string.set_key_custom_exclusions), value)
+                apply()
+            }
+            MetadataSanitizer.updateSettings(value, customArtistMerges)
+        }
+
+    override var customArtistMerges: String
+        get() = sharedPreferences.getString(getString(R.string.set_key_custom_artist_merges), "") ?: ""
+        set(value) {
+            sharedPreferences.edit {
+                putString(getString(R.string.set_key_custom_artist_merges), value)
+                apply()
+            }
+            MetadataSanitizer.updateSettings(customExclusions, value)
         }
 
     override val intelligentSorting: Boolean
@@ -236,7 +270,10 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
             getString(R.string.set_key_filtered_locations),
             getString(R.string.set_key_exclude_non_music),
             getString(R.string.set_key_separators),
-            getString(R.string.set_key_auto_sort_names) -> {
+            getString(R.string.set_key_auto_sort_names),
+            getString(R.string.set_key_custom_exclusions),
+            getString(R.string.set_key_custom_artist_merges) -> {
+                MetadataSanitizer.updateSettings(customExclusions, customArtistMerges)
                 L.d("Dispatching indexing setting change for $key")
                 listener.onIndexingSettingChanged()
             }

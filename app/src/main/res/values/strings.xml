@@ -496,4 +496,15 @@
         <item quantity="one">%d second</item>
         <item quantity="other">%d seconds</item>
     </plurals>
+
+    <!-- Drag Handle Overrides -->
+    <string name="m3_bottom_sheet_drag_handle_description" tools:ignore="PrivateResource">""</string>
+    <string name="m3_bottom_sheet_drag_handle_clicked" tools:ignore="PrivateResource">""</string>
+    <string name="m3_bottom_sheet_drag_handle_dismiss" tools:ignore="PrivateResource">""</string>
+
+    <!-- Custom User Metadata Filters & Aliases -->
+    <string name="set_custom_exclusions">Filter Words to Remove</string>
+    <string name="set_custom_exclusions_desc">Remove custom words/tags (comma or newline separated, e.g. Masstamilan, 320kbps)</string>
+    <string name="set_custom_artist_merges">Merge Artists &amp; Aliases</string>
+    <string name="set_custom_artist_merges_desc">Custom aliases one per line (e.g. AR Rahman=A. R. Rahman)</string>
 </resources>

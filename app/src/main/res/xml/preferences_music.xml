@@ -14,6 +14,18 @@
             app:summary="@string/set_separators_desc"
             app:title="@string/set_separators" />
 
+        <EditTextPreference
+            app:key="@string/set_key_custom_exclusions"
+            app:summary="@string/set_custom_exclusions_desc"
+            app:title="@string/set_custom_exclusions"
+            app:dialogTitle="@string/set_custom_exclusions" />
+
+        <EditTextPreference
+            app:key="@string/set_key_custom_artist_merges"
+            app:summary="@string/set_custom_artist_merges_desc"
+            app:title="@string/set_custom_artist_merges"
+            app:dialogTitle="@string/set_custom_artist_merges" />
+
         <SwitchPreferenceCompat
             app:defaultValue="true"
             app:key="@string/set_key_auto_sort_names"

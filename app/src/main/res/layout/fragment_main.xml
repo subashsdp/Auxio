@@ -112,6 +112,8 @@
                     android:id="@+id/queue_handle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
                     android:paddingBottom="@dimen/spacing_medium"
                     app:layout_constraintTop_toTopOf="parent" />
 
